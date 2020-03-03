@@ -1,0 +1,21 @@
+{
+  "name": "@ux-xu/cocorokit-js-sdk",
+  "version": "0.0.1",
+  "description": "cocorokit javascript sdk",
+  "main": "main.js",
+  "author": "Yusaku Nishiwaki",
+  "license": "Apache-2.0",
+  "keywords": [
+    "konashi",
+    "web-bluetooth",
+    "javascript",
+    "bluetooth"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YUKAI/cocorokit-js-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/YUKAI/cocorokit-js-sdk/issues"
+  }
+}

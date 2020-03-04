@@ -111,3 +111,4 @@ class CocoroKit {
 }
 
 module.exports = CocoroKit;
+module.exports.default = CocoroKit;

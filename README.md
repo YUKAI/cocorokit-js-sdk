@@ -1,60 +1,62 @@
-# cocoro kit javascript SDK
+[English](./README_en.md)
 
-You can run cocorokit with javascript.
+# ココロキット javascript SDK
 
-## Requirements
+ココロキットを JavaScript から動かすための SDK です．
 
-This module uses Web Bluetooth API. The support of API is limited.
-Please confirm your device following the link (https://caniuse.com/#feat=web-bluetooth).
+## 必要な環境
 
-## Usage
+この SDK は Web Bluetooth API という機能を使っています．  
+Web Bluetooth API は対応しているデバイスに制限があります．一例として，Android は標準の Chrome で Web Bluetooth API を利用できますが，iPhone では別途アプリのインストールが必要です．
 
-Before run below script, please get cocorokit board and turn on.
+## 使い方
+
+以下は動かすサンプルです．
 
 ```javascript
 import CocoroKit from "@ux-xu/cocorokit-js-sdk";
 
-window.cocorokit = new CococoKit(onConnected); // callback on connected.
+window.cocorokit = new CococoKit(onConnected); // 接続したときのCallback関数を設定します．
 window.cocorokit.connect();
 
 // after connected
-window.cocorokit.spin(CocoroKit.CONST.SPIN.RIGHT, 100); // Spin right motor by 100% power.
-window.cocorokit.reverse(CocoroKit.CONST.REVERSE.RIGHT, 100); // Reverse right motor by 100% power.
+window.cocorokit.spin(CocoroKit.CONST.SPIN.RIGHT, 100); // 右のモータを100%のパワーで動かします
+window.cocorokit.reverse(CocoroKit.CONST.REVERSE.RIGHT, 100); // 右のモータを100%のパワーで逆回転させます．
 ```
 
-## Functions
+## 関数についての説明
 
 ```javascript
 /**
- * Spin motor
+ * モータを正回転させる
  * @param {Object} motorSet Cocorokit.CONST.SPIN.RIGHT|LEFT
  * @param {Number} ratio 0 - 100
  */
-spin(motorSet, ratio) {}
+spin(motorSet, ratio)
 
 /**
- * Reverse motor
+ * モータを逆回転させる
  * @param {Object} motorSet Cocorokit.CONST.REVERSE.RIGHT|LEFT
  * @param {Number} ratio 0 - 100
  */
-reverse(motorSet, ratio) {}
+reverse(motorSet, ratio)
 
 /**
- * Stop motor
+ * モータを止める
  * @param {Array} motorSet Cocorokit.CONST.STOP.RIGHT|LEFT
  */
-stop(motorSet) {}
+stop(motorSet)
 
 /**
- * Change LED color
+ * 付いているLEDの色を変える
  * @param {Object} color Cocorokit.CONST.COLOR.RED|GREEN|BLUE
  * @param {Number} ratio 0 - 100
  */
-color(color, ratio) {}
+color(color, ratio)
 
 /**
- * Clear current values
+ * リセット（全て，モータのみ，LEDのみ）
  * @param {Object} type Cocorokit.CONST.RESET.ALL|MOTOR|LED
  */
-reset(type) {}
+reset(type)
 ```

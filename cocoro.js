@@ -1,163 +1,129 @@
-import Konashi from './konashi.js';
+import Konashi from "./konashi.js";
 
 class _PioPin {
   constructor(pin) {
     this.number = pin;
-    this.pwmMode = Konashi.consts.KONASHI_PWM_DISABLE;
+    this.pwmMode = Konashi.PWM_DISABLE;
     this.pwmRatio = 0;
   }
 }
 
-class Queue {
-  constructor() {
-    this.queue = Promise.resolve(true);
-    this.stopQueue = false;
-  }
-
-  add(job, delay) {
-    var p = function () {
-      return new Promise((resolve) => {
-        setTimeout(function () {
-          job();
-          resolve();
-        }, delay);
-      });
-    };
-    this.queue = this.queue.then(p);
-  }
-}
-
 const _BLE_DELAYS = {
-  NONE: 0,
   NORMAL: 50,
   LONG: 200,
-  DEBUG: 1000
-}
+};
 
 class Cocoro {
   constructor(callback) {
-    this._queue = new Queue();
     this._konashi = null;
     this._name = null;
     this._isSending = 0;
     this._onConnected = callback;
 
     this._pioPins = [
-      new _PioPin(Konashi.consts.PIO0),
-      new _PioPin(Konashi.consts.PIO1),
-      new _PioPin(Konashi.consts.PIO2),
-      new _PioPin(Konashi.consts.PIO3),
-      new _PioPin(Konashi.consts.PIO4),
-      new _PioPin(Konashi.consts.PIO5),
-      new _PioPin(Konashi.consts.PIO6),
-      new _PioPin(Konashi.consts.PIO7)
+      new _PioPin(Konashi.PIO0),
+      new _PioPin(Konashi.PIO1),
+      new _PioPin(Konashi.PIO2),
+      new _PioPin(Konashi.PIO3),
+      new _PioPin(Konashi.PIO4),
+      new _PioPin(Konashi.PIO5),
+      new _PioPin(Konashi.PIO6),
+      new _PioPin(Konashi.PIO7),
     ];
   }
 
-  connect(prefix = 'cocorokit') {
+  async sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  async connect(prefix = "cocorokit") {
     if (this._konashi) this._konashi.disconnect();
 
-    return Konashi.find(true, {
-        filters: [{
-          namePrefix: prefix
-        }],
-        optionalServices: [Konashi._serviceUUID]
-      })
-      .then((k) => {
-        this._konashi = k;
-        this._name = k.name();
-        this._isSending = 0;
-      })
-      .then(() => {
-        var that = this;
-        this._pioPins.forEach(pin => {
-          this._queue.add(function () {
-            that._konashi.pwmMode(pin.number, Konashi.consts.KONASHI_PWM_ENABLE_LED_MODE);
-            pin.pwmMode = Konashi.consts.KONASHI_PWM_ENABLE_LED_MODE;
-          }, _BLE_DELAYS.LONG);
+    this._konashi = await Konashi.find(true, {
+      filters: [
+        {
+          namePrefix: prefix,
+        },
+      ],
+      optionalServices: [Konashi._serviceUUID],
+    }).catch(() => null);
 
-          this._queue.add(function () {
-            that._konashi.pwmLedDrive(pin.number, 0);
-            pin.pwmRatio = 0;
-
-            if (pin.number == 7) { // Last
-              that._onConnected();
-            }
-          }, _BLE_DELAYS.LONG);
-        });
-      })
-  }
-
-  // type: 'all', 'motor', 'led'
-  reset(type) {
-    if (!this._konashi) return;
-
-    if (type === "all") {
-      this._pioPins.forEach(pin => {
-        var that = this;
-        this._queue.add(function () {
-          that._konashi.pwmLedDrive(pin.number, 0);
-          pin.pwmRatio = 0;
-        }, _BLE_DELAYS.NORMAL);
-      });
+    if (this._konashi == null) {
+      console.log("Could not find device");
+      return;
     }
 
-    if (type === "motor") {
-      this._pioPins.slice(1, 5).forEach(pin => {
-        var that = this;
-        this._queue.add(function () {
-          that._konashi.pwmLedDrive(pin.number, 0);
-          pin.pwmRatio = 0;
-        }, _BLE_DELAYS.NORMAL);
-      });
-    }
+    this._name = this._konashi.deviceName;
+    this._isSending = 0;
 
-    if (type === "led") {
-      this._pioPins.slice(5, 8).forEach(pin => {
-        var that = this;
-        this._queue.add(function () {
-          that._konashi.pwmLedDrive(pin.number, 0);
-          pin.pwmRatio = 0;
-        }, _BLE_DELAYS.NORMAL);
-      });
+    for (let i in this._pioPins) {
+      let pin = this._pioPins[i];
+      await this._konashi.pwmMode(pin.number, Konashi.PWM_ENABLE_LED_MODE);
+      await this.sleep(_BLE_DELAYS.LONG);
+      pin.pwmMode = Konashi.PWM_ENABLE_LED_MODE;
+
+      await this._konashi.pwmWrite(pin.number, 0);
+      await this.sleep(_BLE_DELAYS.LONG);
+      pin.pwmRatio = 0;
+
+      if (pin.number == 7) {
+        this._onConnected();
+      }
     }
   }
 
-  getPwmRatio(pid) {
-    if (pid < 0 || 7 < pid) return;
-
-    return this._pioPins[pid].pwmRatio;
-  }
-
-  _errorCallback(error) {
-    log.log("cocorokit error: " + error);
-
-    const disconnectError = /disconnected/;
-    if (disconnectError.test(error)) {}
-
-    const alreadyUsedError = /already in progress/;
-    if (alreadyUsedError.test(error)) {
-      this._queue = new Queue();
-      this._isSending = 0;
-      this._konashi.reset();
-    }
-  }
-
-  setPwmRatio(pid, ratio) {
+  async setPwmRatio(pid, ratio) {
     if (pid < 0 || 7 < pid) return;
     if (this._isSending >= 3) return;
     if (ratio == this._pioPins[pid].pwmRatio) return;
 
     this._isSending++;
-    var that = this;
-    this._queue.add(function () {
-      that._konashi.pwmLedDrive(pid, ratio)
-        .then(() => {
-          that._pioPins[pid].pwmRatio = ratio;
-          if (that._isSending > 0) that._isSending--;
-        })
-        .catch(that._errorCallback);
-    }, _BLE_DELAYS.NORMAL);
+    await this._konashi.pwmWrite(pid, ratio).catch((error) => {
+      console.log("cocorokit: " + error);
+    });
+    await this.sleep(_BLE_DELAYS.NORMAL);
+    this._pioPins[pid].pwmRatio = ratio;
+    if (this._isSending > 0) this._isSending--;
+  }
+
+  /**
+   *
+   * @param {*} type "all", "motor", "led"
+   */
+  async reset(type) {
+    if (!this._konashi) return;
+
+    if (type === "all") {
+      for (let i in this._pioPins) {
+        let pin = this._pioPins[i];
+        await this._konashi.pwmWrite(pin.number, 0);
+        await this.sleep(_BLE_DELAYS.NORMAL);
+        pin.pwmRatio = 0;
+      }
+    }
+
+    if (type === "motor") {
+      for (let i = 0; i < 5; i++) {
+        let pin = this._pioPins[i];
+        await this._konashi.pwmWrite(pin.number, 0);
+        await this.sleep(_BLE_DELAYS.NORMAL);
+        pin.pwmRatio = 0;
+      }
+    }
+
+    if (type === "led") {
+      for (let i = 5; i < 8; i++) {
+        let pin = this._pioPins[i];
+        await this._konashi.pwmWrite(pin.number, 0);
+        await this.sleep(_BLE_DELAYS.NORMAL);
+        pin.pwmRatio = 0;
+      }
+    }
+  }
+
+  getPwmRatio(pid) {
+    if (pid < 0 || 7 < pid) return;
+    return this._pioPins[pid].pwmRatio;
   }
 }
 
